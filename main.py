@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -16,6 +17,26 @@ app.add_middleware(
 )
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+# This grabs your secret key from Render environment variables
+APP_SECRET_KEY = os.getenv("APP_SECRET_KEY", "wealthlens-default-secret")
+
+# --- Security Middleware ---
+@app.middleware("http")
+async def verify_api_key(request: Request, call_next):
+    # Allow CORS preflight and documentation paths to pass through freely
+    if request.method == "OPTIONS" or request.url.path in ["/", "/docs", "/openapi.json"]:
+        return await call_next(request)
+    
+    # Protect all routes starting with /api/
+    if request.url.path.startswith("/api/"):
+        client_key = request.headers.get("x-api-key")
+        if client_key != APP_SECRET_KEY:
+            return JSONResponse(
+                status_code=401, 
+                content={"detail": "Unauthorized: Invalid or missing API Key"}
+            )
+            
+    return await call_next(request)
 
 # --- Pydantic Models ---
 class NewAccount(BaseModel):
@@ -23,14 +44,14 @@ class NewAccount(BaseModel):
     type: str  # 'Bank Account' or 'Credit Card'
     balance: float
     credit_limit: float = 0.0
-    account_number: str = ""  # Last 4 digits
+    account_number: str = ""
 
 class NewTransaction(BaseModel):
     account_id: int
     type: str  # 'income', 'expense', 'payment'
     amount: float
     description: str
-    source_account_id: Optional[int] = None  # Safely handles null/empty values
+    source_account_id: Optional[int] = None
 
 # --- Endpoints ---
 @app.get("/api/dashboard")
@@ -77,13 +98,11 @@ async def add_transaction(tx: NewTransaction):
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         async with conn.transaction():
-            # 1. Record transaction history
             await conn.execute(
                 "INSERT INTO transactions (account_id, type, amount, description) VALUES ($1, $2, $3, $4)",
                 tx.account_id, tx.type, tx.amount, tx.description
             )
             
-            # 2. Smart balance routing
             if tx.type == 'expense':
                 await conn.execute(
                     "UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND type = 'credit_card'",
