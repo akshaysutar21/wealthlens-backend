@@ -4,32 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>WealthLens</title>
-
-    <!-- Tailwind CSS for Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js for the Graph -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        darkbg: '#0b0f19',
-                        cardbg: '#121826',
-                    }
-                }
-            }
-        }
+        tailwind.config = { theme: { extend: { colors: { darkbg: '#0b0f19', cardbg: '#121826' } } } }
     </script>
-    <style>
-        /* Hide scrollbars for a clean app feel */
-        ::-webkit-scrollbar { display: none; }
-    </style>
+    <style> ::-webkit-scrollbar { display: none; } </style>
 </head>
 <body class="bg-darkbg text-gray-100 min-h-screen font-sans pb-20 relative">
 
-    <!-- Top Navigation -->
     <header class="bg-cardbg border-b border-gray-800 p-4 sticky top-0 z-40 flex justify-between items-center">
         <div class="flex items-center space-x-2">
             <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-black">W</div>
@@ -44,15 +27,10 @@
     </header>
 
     <main class="max-w-md mx-auto p-4 space-y-6">
-
-        <!-- Hidden API Connection (Auto-runs if URL is saved, but editable here) -->
-        <div class="bg-cardbg p-3 rounded-xl border border-gray-800 flex space-x-2">
-            <input id="apiUrlInput" type="text" placeholder="https://your-api.onrender.com" value="https://wealthlens-backend-11f5.onrender.com"
-                   class="bg-gray-900 border border-gray-700 text-xs text-emerald-400 rounded p-2 flex-grow focus:outline-none">
-            <button onclick="fetchAccounts()" class="bg-gray-700 text-white font-semibold text-xs px-3 py-2 rounded">Sync</button>
+        <div class="bg-cardbg p-3 rounded-xl border border-gray-800 flex space-x-2 hidden">
+            <input id="apiUrlInput" type="text" value="https://wealthlens-backend-11f5.onrender.com" class="hidden">
         </div>
 
-        <!-- Financial Summary Cards -->
         <section class="grid grid-cols-2 gap-3">
             <div class="bg-cardbg p-4 rounded-2xl border border-gray-800 shadow-lg relative overflow-hidden">
                 <p class="text-xs text-gray-400">Total Net Worth</p>
@@ -66,81 +44,25 @@
             </div>
         </section>
 
-        <!-- Net Worth Chart Section -->
         <section class="bg-cardbg p-4 rounded-2xl border border-gray-800 shadow-lg">
             <h3 class="text-sm font-semibold text-gray-300 mb-4">6-Month Trend</h3>
-            <div class="h-40 w-full">
-                <canvas id="netWorthChart"></canvas>
-            </div>
+            <div class="h-40 w-full"><canvas id="netWorthChart"></canvas></div>
         </section>
 
-        <!-- Accounts Section (Live Data) -->
         <section class="space-y-3">
-            <h3 class="text-sm font-semibold text-gray-300">Connected Accounts</h3>
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-semibold text-gray-300">Connected Accounts</h3>
+                <button onclick="fetchAccounts()" class="text-xs text-emerald-400 hover:underline">Refresh</button>
+            </div>
             <div id="accountsContainer" class="space-y-3">
                 <div class="text-xs text-gray-500 text-center py-4">Fetching live data...</div>
             </div>
         </section>
-
-        <!-- Recent Transactions (UI Demo) -->
-        <section class="space-y-3 pb-8">
-            <div class="flex justify-between items-center">
-                <h3 class="text-sm font-semibold text-gray-300">Recent Transactions</h3>
-                <span class="text-xs text-gray-500">View All</span>
-            </div>
-            
-            <div class="bg-cardbg rounded-2xl border border-gray-800 divide-y divide-gray-800">
-                <!-- Tx 1 -->
-                <div class="p-4 flex justify-between items-center">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">⛽</div>
-                        <div>
-                            <p class="text-sm font-medium text-white">Hunter 350 Fuel</p>
-                            <p class="text-xs text-gray-500">Today, 9:42 AM</p>
-                        </div>
-                    </div>
-                    <span class="text-sm font-bold text-red-400">-₹500</span>
-                </div>
-                <!-- Tx 2 -->
-                <div class="p-4 flex justify-between items-center">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">💼</div>
-                        <div>
-                            <p class="text-sm font-medium text-white">Salary Credit</p>
-                            <p class="text-xs text-gray-500">Yesterday</p>
-                        </div>
-                    </div>
-                    <span class="text-sm font-bold text-emerald-400">+₹95,000</span>
-                </div>
-                <!-- Tx 3 -->
-                <div class="p-4 flex justify-between items-center">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">🎉</div>
-                        <div>
-                            <p class="text-sm font-medium text-white">Wedding Vendor Advance</p>
-                            <p class="text-xs text-gray-500">Jul 18</p>
-                        </div>
-                    </div>
-                    <span class="text-sm font-bold text-red-400">-₹25,000</span>
-                </div>
-                 <!-- Tx 4 -->
-                 <div class="p-4 flex justify-between items-center">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">☕</div>
-                        <div>
-                            <p class="text-sm font-medium text-white">Cafe in Pune</p>
-                            <p class="text-xs text-gray-500">Jul 16</p>
-                        </div>
-                    </div>
-                    <span class="text-sm font-bold text-red-400">-₹450</span>
-                </div>
-            </div>
-        </section>
     </main>
 
-    <!-- Add Account Modal (Hidden by default) -->
+    <!-- Add Account Modal -->
     <div id="addAccountModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
-        <div class="bg-cardbg w-full max-w-md rounded-t-3xl sm:rounded-3xl border border-gray-700 p-6 space-y-5 animate-[slideUp_0.3s_ease-out]">
+        <div class="bg-cardbg w-full max-w-md rounded-t-3xl sm:rounded-3xl border border-gray-700 p-6 space-y-5">
             <div class="flex justify-between items-center">
                 <h3 class="text-lg font-bold text-white">Add New Account</h3>
                 <button onclick="document.getElementById('addAccountModal').classList.add('hidden')" class="text-gray-400 hover:text-white text-xl">&times;</button>
@@ -148,33 +70,31 @@
             
             <div class="space-y-4">
                 <div>
-                    <label class="text-xs text-gray-400 mb-1 block">Institution Name (e.g. HDFC)</label>
-                    <input type="text" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 focus:outline-none">
+                    <label class="text-xs text-gray-400 mb-1 block">Institution Name</label>
+                    <input id="newAccName" type="text" placeholder="e.g. HDFC" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 focus:outline-none">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-xs text-gray-400 mb-1 block">Account Type</label>
-                        <select class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 focus:outline-none">
+                        <select id="newAccType" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 focus:outline-none">
                             <option>Bank Account</option>
                             <option>Credit Card</option>
-                            <option>Investment</option>
                         </select>
                     </div>
                     <div>
                         <label class="text-xs text-gray-400 mb-1 block">Current Balance</label>
-                        <input type="number" placeholder="₹ 0.00" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 focus:outline-none">
+                        <input id="newAccBalance" type="number" placeholder="₹ 0.00" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 focus:outline-none">
                     </div>
                 </div>
-                <button class="w-full bg-emerald-500 text-black font-bold py-3 rounded-xl mt-4 hover:bg-emerald-400 transition-colors">
-                    Save Account to Database
+                <button id="saveBtn" onclick="saveAccount()" class="w-full bg-emerald-500 text-black font-bold py-3 rounded-xl mt-4 hover:bg-emerald-400 transition-colors">
+                    Save Account
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Application Logic -->
     <script>
-        // 1. Initialize the Chart
+        // Chart Initialization
         const ctx = document.getElementById('netWorthChart').getContext('2d');
         new Chart(ctx, {
             type: 'line',
@@ -183,39 +103,27 @@
                 datasets: [{
                     label: 'Net Worth',
                     data: [120000, 135000, 130000, 150000, 180000, 210000],
-                    borderColor: '#10b981', // Emerald 500
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0
+                    borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 10 } }, border: { display: false } },
-                    y: { display: false, min: 100000 }
-                },
+                responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: { x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 10 } }, border: { display: false } }, y: { display: false, min: 100000 } },
                 interaction: { intersect: false, mode: 'index' }
             }
         });
 
-        // 2. Fetch Live Accounts from Render
+        // Fetch Accounts (GET)
         async function fetchAccounts() {
-            const baseUrl = document.getElementById('apiUrlInput').value.trim();
+            const baseUrl = document.getElementById('apiUrlInput').value;
             const container = document.getElementById('accountsContainer');
-            
             container.innerHTML = `<div class="text-xs text-gray-400 text-center py-4">Loading your accounts...</div>`;
 
             try {
                 const response = await fetch(`${baseUrl}/api/accounts`);
                 const accounts = await response.json();
-
-                if (!Array.isArray(accounts)) { throw new Error("Invalid format"); }
-
+                
                 let totalBankBalance = 0;
                 container.innerHTML = '';
 
@@ -226,14 +134,12 @@
                     const isCredit = acc.type === 'credit_card';
                     const badgeColor = isCredit ? 'text-amber-400 bg-amber-400/10' : 'text-blue-400 bg-blue-400/10';
 
-                    const cardHtml = `
+                    container.innerHTML += `
                         <div class="bg-gray-900/50 p-4 rounded-xl border border-gray-800 flex justify-between items-center transition-all hover:border-gray-600">
                             <div>
                                 <div class="flex items-center space-x-2">
                                     <span class="font-medium text-sm text-white">${acc.name}</span>
-                                    <span class="text-[10px] px-2 py-0.5 rounded ${badgeColor}">
-                                        ${isCredit ? 'Credit' : 'Bank'}
-                                    </span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded ${badgeColor}">${isCredit ? 'Credit' : 'Bank'}</span>
                                 </div>
                             </div>
                             <div class="text-right">
@@ -241,21 +147,62 @@
                                     ${isCredit ? '-' : ''}₹${balance.toLocaleString('en-IN')}
                                 </span>
                             </div>
-                        </div>
-                    `;
-                    container.innerHTML += cardHtml;
+                        </div>`;
                 });
 
                 document.getElementById('bankBalanceDisplay').innerText = `₹${totalBankBalance.toLocaleString('en-IN')}`;
                 document.getElementById('netWorthDisplay').innerText = `₹${totalBankBalance.toLocaleString('en-IN')}`;
-
             } catch (err) {
-                console.error(err);
                 container.innerHTML = `<div class="text-xs text-red-400 text-center py-4">Failed to connect to API.</div>`;
             }
         }
 
-        // Auto-fetch on load
+        // Save New Account (POST)
+        async function saveAccount() {
+            const btn = document.getElementById('saveBtn');
+            const name = document.getElementById('newAccName').value.trim();
+            const type = document.getElementById('newAccType').value;
+            const balance = document.getElementById('newAccBalance').value;
+            const baseUrl = document.getElementById('apiUrlInput').value;
+
+            if (!name || !balance) {
+                alert("Please fill in all fields");
+                return;
+            }
+
+            btn.innerText = "Saving...";
+            btn.classList.add("opacity-50");
+
+            try {
+                const response = await fetch(`${baseUrl}/api/accounts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, type: type, balance: parseFloat(balance) })
+                });
+
+                if (response.ok) {
+                    // Close Modal
+                    document.getElementById('addAccountModal').classList.add('hidden');
+                    // Clear inputs
+                    document.getElementById('newAccName').value = '';
+                    document.getElementById('newAccBalance').value = '';
+                    btn.innerText = "Save Account";
+                    btn.classList.remove("opacity-50");
+                    
+                    // Refresh the list immediately to show the new data!
+                    fetchAccounts();
+                } else {
+                    alert("Error saving account.");
+                    btn.innerText = "Save Account";
+                    btn.classList.remove("opacity-50");
+                }
+            } catch (error) {
+                alert("Network error while saving.");
+                btn.innerText = "Save Account";
+                btn.classList.remove("opacity-50");
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', fetchAccounts);
     </script>
 </body>
