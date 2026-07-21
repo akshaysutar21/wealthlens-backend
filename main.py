@@ -16,12 +16,13 @@ app.add_middleware(
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# --- Pydantic Models ---
 class NewAccount(BaseModel):
     name: str
     type: str  # 'Bank Account' or 'Credit Card'
     balance: float
     credit_limit: float = 0.0
-    account_number: str = ""  # Last 4 digits for clarity
+    account_number: str = ""  # Last 4 digits
 
 class NewTransaction(BaseModel):
     account_id: int
@@ -30,6 +31,7 @@ class NewTransaction(BaseModel):
     description: str
     source_account_id: int = None  # Required if paying a CC bill from a bank
 
+# --- Endpoints ---
 @app.get("/api/dashboard")
 async def get_dashboard():
     conn = await asyncpg.connect(DATABASE_URL)
@@ -74,7 +76,7 @@ async def add_transaction(tx: NewTransaction):
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         async with conn.transaction():
-            # 1. Record the transaction
+            # 1. Record the transaction history
             await conn.execute(
                 "INSERT INTO transactions (account_id, type, amount, description) VALUES ($1, $2, $3, $4)",
                 tx.account_id, tx.type, tx.amount, tx.description
@@ -82,7 +84,7 @@ async def add_transaction(tx: NewTransaction):
             
             # 2. Smart balance routing
             if tx.type == 'expense':
-                # Expenses reduce bank balance or increase CC debt
+                # Expenses increase CC liability or decrease bank cash
                 await conn.execute(
                     "UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND type = 'credit_card'",
                     tx.amount, tx.account_id
@@ -92,7 +94,7 @@ async def add_transaction(tx: NewTransaction):
                     tx.amount, tx.account_id
                 )
             elif tx.type == 'income':
-                # Income always increases bank balance
+                # Income increases bank cash balance
                 await conn.execute(
                     "UPDATE accounts SET balance = balance + $1 WHERE id = $2", tx.amount, tx.account_id
                 )
@@ -101,7 +103,7 @@ async def add_transaction(tx: NewTransaction):
                 await conn.execute(
                     "UPDATE accounts SET balance = balance - $1 WHERE id = $2", tx.amount, tx.account_id
                 )
-                # Automatically deduct from the chosen Bank Account paying the bill
+                # Automatically deduct from the chosen source Bank Account paying the bill
                 if tx.source_account_id:
                     await conn.execute(
                         "UPDATE accounts SET balance = balance - $1 WHERE id = $2", tx.amount, tx.source_account_id
