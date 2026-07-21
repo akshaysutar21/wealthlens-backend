@@ -36,3 +36,27 @@ async def get_accounts():
     return [dict(row) for row in rows]
 
 # Add more endpoints (e.g., POST /api/transactions) as you build out the app!
+
+from pydantic import BaseModel
+
+# Define the shape of the incoming data
+class NewAccount(BaseModel):
+    name: str
+    type: str
+    balance: float
+
+# Create the route to accept new accounts
+@app.post("/api/accounts")
+async def add_account(account: NewAccount):
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
+        # Convert 'Bank Account' or 'Credit Card' to your database format
+        db_type = 'bank' if 'Bank' in account.type else 'credit_card'
+        
+        await conn.execute(
+            "INSERT INTO accounts (name, type, balance) VALUES ($1, $2, $3)",
+            account.name, db_type, account.balance
+        )
+        return {"message": "Account added successfully!"}
+    finally:
+        await conn.close()
