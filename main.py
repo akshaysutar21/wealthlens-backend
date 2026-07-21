@@ -1,62 +1,112 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import os
-import asyncpg
 from pydantic import BaseModel
+import asyncpg
+import os
+from datetime import datetime
 
-app = FastAPI(title="WealthLens API")
+app = FastAPI()
 
-# Allow your PWA frontend to talk to this API securely
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Change this to your frontend URL in production
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Render and Hugging Face will securely inject this variable
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-@app.get("/")
-async def root():
-    return {"status": "WealthLens API is Live"}
-
-@app.get("/api/accounts")
-async def get_accounts():
-    '''Fetches all bank and credit card accounts from Supabase'''
-    if not DATABASE_URL:
-        return {"error": "DATABASE_URL environment variable is missing."}
-    
-    conn = await asyncpg.connect(DATABASE_URL)
-    # Fetch data based on the schema we created earlier
-    rows = await conn.fetch("SELECT id, name, type, balance, monthly_limit FROM accounts")
-    await conn.close()
-    
-    return [dict(row) for row in rows]
-
-# Add more endpoints (e.g., POST /api/transactions) as you build out the app!
-
-from pydantic import BaseModel
-
-# Define the shape of the incoming data
 class NewAccount(BaseModel):
     name: str
-    type: str
+    type: str  # 'Bank Account' or 'Credit Card'
     balance: float
+    credit_limit: float = 0.0
+    account_number: str = ""  # Last 4 digits for clarity
 
-# Create the route to accept new accounts
+class NewTransaction(BaseModel):
+    account_id: int
+    type: str  # 'income', 'expense', 'payment'
+    amount: float
+    description: str
+    source_account_id: int = None  # Required if paying a CC bill from a bank
+
+@app.get("/api/dashboard")
+async def get_dashboard():
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
+        accounts = await conn.fetch("SELECT * FROM accounts ORDER BY id")
+        
+        current_month = datetime.now().replace(day=1, hour=0, minute=0, second=0)
+        monthly_spend = await conn.fetchval(
+            "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'expense' AND created_at >= $1", 
+            current_month
+        )
+
+        total_cash = sum(acc['balance'] for acc in accounts if acc['type'] == 'bank')
+        total_cc_due = sum(acc['balance'] for acc in accounts if acc['type'] == 'credit_card')
+        net_worth = total_cash - total_cc_due
+
+        return {
+            "net_worth": net_worth,
+            "total_cash": total_cash,
+            "total_cc_due": total_cc_due,
+            "monthly_spend": monthly_spend,
+            "accounts": [dict(acc) for acc in accounts]
+        }
+    finally:
+        await conn.close()
+
 @app.post("/api/accounts")
 async def add_account(account: NewAccount):
     conn = await asyncpg.connect(DATABASE_URL)
     try:
-        # Convert 'Bank Account' or 'Credit Card' to your database format
         db_type = 'bank' if 'Bank' in account.type else 'credit_card'
-        
         await conn.execute(
-            "INSERT INTO accounts (name, type, balance) VALUES ($1, $2, $3)",
-            account.name, db_type, account.balance
+            "INSERT INTO accounts (name, type, balance, credit_limit, account_number) VALUES ($1, $2, $3, $4, $5)",
+            account.name, db_type, account.balance, account.credit_limit, account.account_number
         )
-        return {"message": "Account added successfully!"}
+        return {"status": "success"}
+    finally:
+        await conn.close()
+
+@app.post("/api/transactions")
+async def add_transaction(tx: NewTransaction):
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
+        async with conn.transaction():
+            # 1. Record the transaction
+            await conn.execute(
+                "INSERT INTO transactions (account_id, type, amount, description) VALUES ($1, $2, $3, $4)",
+                tx.account_id, tx.type, tx.amount, tx.description
+            )
+            
+            # 2. Smart balance routing
+            if tx.type == 'expense':
+                # Expenses reduce bank balance or increase CC debt
+                await conn.execute(
+                    "UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND type = 'credit_card'",
+                    tx.amount, tx.account_id
+                )
+                await conn.execute(
+                    "UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND type = 'bank'",
+                    tx.amount, tx.account_id
+                )
+            elif tx.type == 'income':
+                # Income always increases bank balance
+                await conn.execute(
+                    "UPDATE accounts SET balance = balance + $1 WHERE id = $2", tx.amount, tx.account_id
+                )
+            elif tx.type == 'payment':
+                # Reduce Credit Card due
+                await conn.execute(
+                    "UPDATE accounts SET balance = balance - $1 WHERE id = $2", tx.amount, tx.account_id
+                )
+                # Automatically deduct from the chosen Bank Account paying the bill
+                if tx.source_account_id:
+                    await conn.execute(
+                        "UPDATE accounts SET balance = balance - $1 WHERE id = $2", tx.amount, tx.source_account_id
+                    )
+
+        return {"status": "success"}
     finally:
         await conn.close()
