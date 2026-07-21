@@ -20,10 +20,22 @@
         <div class="flex gap-2">
             <button onclick="openTransactionModal()" class="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20">Add Tx</button>
             <button onclick="openAccountModal()" class="bg-emerald-500 text-black px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg shadow-emerald-500/20">+ Acct</button>
+            <button onclick="toggleSettings()" class="bg-gray-800 text-gray-300 px-2 py-1.5 rounded-lg text-sm">⚙️</button>
         </div>
     </header>
 
     <main class="max-w-md mx-auto p-4 space-y-6">
+        
+        <!-- Settings Panel for API Key (Hidden by default) -->
+        <div id="settingsPanel" class="hidden bg-cardbg p-4 rounded-2xl border border-gray-700 space-y-3">
+            <h3 class="text-sm font-bold text-white">Security Settings</h3>
+            <div>
+                <label class="text-xs text-gray-400 mb-1 block">API Secret Key</label>
+                <input id="apiKeyInput" type="password" placeholder="Enter your APP_SECRET_KEY" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-2.5 text-xs text-white">
+            </div>
+            <button onclick="saveApiKey()" class="w-full bg-emerald-500 text-black font-bold py-2 rounded-xl text-xs">Save & Connect</button>
+        </div>
+
         <input id="apiUrl" type="hidden" value="https://wealthlens-backend-11f5.onrender.com">
 
         <!-- Macro Dashboard -->
@@ -111,6 +123,29 @@
         const baseUrl = document.getElementById('apiUrl').value;
         let globalAccounts = [];
 
+        function getHeaders() {
+            const key = localStorage.getItem('wealthlens_api_key') || '';
+            return {
+                'Content-Type': 'application/json',
+                'x-api-key': key
+            };
+        }
+
+        function toggleSettings() {
+            const panel = document.getElementById('settingsPanel');
+            panel.classList.toggle('hidden');
+            const savedKey = localStorage.getItem('wealthlens_api_key');
+            if(savedKey) { document.getElementById('apiKeyInput').value = savedKey; }
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if(!key) return alert('Please enter a key');
+            localStorage.setItem('wealthlens_api_key', key);
+            document.getElementById('settingsPanel').classList.add('hidden');
+            fetchDashboard();
+        }
+
         function formatINR(num) { return '₹' + parseFloat(num).toLocaleString('en-IN'); }
         function openAccountModal() { document.getElementById('addAccountModal').classList.remove('hidden'); }
         function openTransactionModal() { document.getElementById('addTxModal').classList.remove('hidden'); handleTxTypeChange(); }
@@ -161,7 +196,12 @@
 
         async function fetchDashboard() {
             try {
-                const res = await fetch(`${baseUrl}/api/dashboard`);
+                const res = await fetch(`${baseUrl}/api/dashboard`, { headers: getHeaders() });
+                if (res.status === 401) {
+                    document.getElementById('settingsPanel').classList.remove('hidden');
+                    alert('Unauthorized: Please enter your correct API Secret Key in settings.');
+                    return;
+                }
                 const data = await res.json();
                 globalAccounts = data.accounts;
 
@@ -222,7 +262,7 @@
 
             await fetch(`${baseUrl}/api/accounts`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify({ name, type, balance: parseFloat(balance), credit_limit: parseFloat(limit), account_number: number })
             });
             
@@ -239,7 +279,6 @@
             const amount = document.getElementById('txAmount').value;
             const desc = document.getElementById('txDesc').value;
             
-            // Explicitly set source_account_id to null if it's not a payment
             const sourceAccVal = document.getElementById('txSourceAccount').value;
             const sourceAccId = (txType === 'payment' && sourceAccVal) ? parseInt(sourceAccVal) : null;
 
@@ -247,7 +286,7 @@
 
             await fetch(`${baseUrl}/api/transactions`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify({ 
                     account_id: parseInt(accId), 
                     type: txType, 
