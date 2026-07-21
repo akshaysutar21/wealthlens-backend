@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 import asyncpg
 import os
 from datetime import datetime
@@ -29,7 +30,7 @@ class NewTransaction(BaseModel):
     type: str  # 'income', 'expense', 'payment'
     amount: float
     description: str
-    source_account_id: int = None  # Required if paying a CC bill from a bank
+    source_account_id: Optional[int] = None  # Safely handles null/empty values
 
 # --- Endpoints ---
 @app.get("/api/dashboard")
@@ -76,7 +77,7 @@ async def add_transaction(tx: NewTransaction):
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         async with conn.transaction():
-            # 1. Record the transaction history
+            # 1. Record transaction history
             await conn.execute(
                 "INSERT INTO transactions (account_id, type, amount, description) VALUES ($1, $2, $3, $4)",
                 tx.account_id, tx.type, tx.amount, tx.description
@@ -84,7 +85,6 @@ async def add_transaction(tx: NewTransaction):
             
             # 2. Smart balance routing
             if tx.type == 'expense':
-                # Expenses increase CC liability or decrease bank cash
                 await conn.execute(
                     "UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND type = 'credit_card'",
                     tx.amount, tx.account_id
@@ -94,16 +94,13 @@ async def add_transaction(tx: NewTransaction):
                     tx.amount, tx.account_id
                 )
             elif tx.type == 'income':
-                # Income increases bank cash balance
                 await conn.execute(
                     "UPDATE accounts SET balance = balance + $1 WHERE id = $2", tx.amount, tx.account_id
                 )
             elif tx.type == 'payment':
-                # Reduce Credit Card due
                 await conn.execute(
                     "UPDATE accounts SET balance = balance - $1 WHERE id = $2", tx.amount, tx.account_id
                 )
-                # Automatically deduct from the chosen source Bank Account paying the bill
                 if tx.source_account_id:
                     await conn.execute(
                         "UPDATE accounts SET balance = balance - $1 WHERE id = $2", tx.amount, tx.source_account_id
