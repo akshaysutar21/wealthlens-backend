@@ -2,28 +2,176 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>WealthLens</title>
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json">
 
-    <!-- Mobile UI Optimizations -->
+    <!-- PWA Manifest & App Tags -->
+    <link rel="manifest" href="/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0b0f19">
 
-    <!-- Service Worker Registration -->
+    <!-- Tailwind CSS CDN for Dark Theme Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('Service Worker Registered!', reg))
-            .catch(err => console.error('Service Worker Registration Failed!', err));
-        });
-      }
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0b0f19',
+                        cardbg: '#121826',
+                        accentgreen: '#10b981',
+                        accentred: '#ef4444',
+                        accentgold: '#f59e0b'
+                    }
+                }
+            }
+        }
     </script>
 </head>
-<body>
-    <!-- Your existing WealthLens UI goes here -->
+<body class="bg-darkbg text-gray-100 min-h-screen font-sans pb-10">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-cardbg border-b border-gray-800 p-4 sticky top-0 z-50 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-black">W</div>
+            <h1 class="text-xl font-bold tracking-wide text-white">WealthLens</h1>
+        </div>
+        <span class="text-xs bg-gray-800 text-emerald-400 px-2 py-1 rounded-full border border-gray-700">Live</span>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-md mx-auto p-4 space-y-6">
+
+        <!-- API Connection Bar -->
+        <section class="bg-cardbg p-3 rounded-xl border border-gray-800 flex flex-col space-y-2">
+            <label for="apiUrlInput" class="text-xs text-gray-400">Render Backend URL:</label>
+            <div class="flex space-x-2">
+                <input id="apiUrlInput" type="text" placeholder="https://your-api.onrender.com" 
+                       class="bg-gray-900 border border-gray-700 text-xs text-emerald-400 rounded p-2 flex-grow focus:outline-none">
+                <button onclick="saveApiUrl()" class="bg-emerald-500 text-black font-semibold text-xs px-3 py-2 rounded">
+                    Connect
+                </button>
+            </div>
+        </section>
+
+        <!-- Financial Summary Cards -->
+        <section class="grid grid-cols-2 gap-3">
+            <!-- Net Worth Card -->
+            <div class="bg-cardbg p-4 rounded-2xl border border-gray-800 shadow-lg">
+                <p class="text-xs text-gray-400">Net Worth</p>
+                <h2 id="netWorthDisplay" class="text-xl font-bold text-white mt-1">₹0</h2>
+                <span class="text-[10px] text-gray-500">Total liquid balance</span>
+            </div>
+
+            <!-- Bank Balance Card -->
+            <div class="bg-cardbg p-4 rounded-2xl border border-gray-800 shadow-lg">
+                <p class="text-xs text-gray-400">Bank Balance</p>
+                <h2 id="bankBalanceDisplay" class="text-xl font-bold text-emerald-400 mt-1">₹0</h2>
+                <span class="text-[10px] text-gray-500">Across liquid accounts</span>
+            </div>
+        </section>
+
+        <!-- Accounts & Cards Section -->
+        <section class="space-y-3">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-semibold text-gray-300">Accounts & Cards</h3>
+                <button onclick="fetchAccounts()" class="text-xs text-emerald-400 hover:underline">Refresh</button>
+            </div>
+
+            <!-- Account List Container -->
+            <div id="accountsContainer" class="space-y-3">
+                <div class="bg-cardbg p-4 rounded-xl border border-gray-800 text-center text-xs text-gray-500">
+                    Connect your Render URL above to load accounts.
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- App Scripts -->
+    <script>
+        // Service Worker Registration for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker Registered'))
+                .catch(err => console.error('SW Registration Failed', err));
+        }
+
+        // Load saved Render API URL
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedUrl = localStorage.getItem('wealthlens_api_url');
+            if (savedUrl) {
+                document.getElementById('apiUrlInput').value = savedUrl;
+                fetchAccounts();
+            }
+        });
+
+        function saveApiUrl() {
+            const url = document.getElementById('apiUrlInput').value.trim();
+            if (url) {
+                // Ensure no trailing slash
+                const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+                localStorage.setItem('wealthlens_api_url', cleanUrl);
+                fetchAccounts();
+            }
+        }
+
+        async function fetchAccounts() {
+            const baseUrl = localStorage.getItem('wealthlens_api_url');
+            if (!baseUrl) return;
+
+            const container = document.getElementById('accountsContainer');
+            container.innerHTML = `<div class="text-xs text-gray-400 text-center py-4">Loading accounts...</div>`;
+
+            try {
+                const response = await fetch(`${baseUrl}/api/accounts`);
+                const accounts = await response.json();
+
+                if (!Array.isArray(accounts)) {
+                    container.innerHTML = `<div class="text-xs text-red-400 text-center py-4">Invalid response from server.</div>`;
+                    return;
+                }
+
+                let totalBankBalance = 0;
+                container.innerHTML = '';
+
+                accounts.forEach(acc => {
+                    const balance = parseFloat(acc.balance || 0);
+                    if (acc.type === 'bank') totalBankBalance += balance;
+
+                    const isCredit = acc.type === 'credit_card';
+                    const badgeColor = isCredit ? 'text-amber-400 bg-amber-400/10' : 'text-emerald-400 bg-emerald-400/10';
+
+                    const cardHtml = `
+                        <div class="bg-cardbg p-4 rounded-xl border border-gray-800 flex justify-between items-center">
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-medium text-sm text-white">${acc.name}</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded ${badgeColor}">
+                                        ${isCredit ? 'Credit Card' : 'Bank'}
+                                    </span>
+                                </div>
+                                ${acc.monthly_limit ? `<p class="text-[10px] text-gray-500 mt-0.5">Limit: ₹${Number(acc.monthly_limit).toLocaleString('en-IN')}</p>` : ''}
+                            </div>
+                            <div class="text-right">
+                                <span class="text-sm font-bold ${isCredit ? 'text-amber-400' : 'text-emerald-400'}">
+                                    ₹${balance.toLocaleString('en-IN')}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                    container.innerHTML += cardHtml;
+                });
+
+                document.getElementById('bankBalanceDisplay').innerText = `₹${totalBankBalance.toLocaleString('en-IN')}`;
+                document.getElementById('netWorthDisplay').innerText = `₹${totalBankBalance.toLocaleString('en-IN')}`;
+
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<div class="text-xs text-red-400 text-center py-4">Failed to fetch data. Check your Render URL or connection.</div>`;
+            }
+        }
+    </script>
 </body>
 </html>
