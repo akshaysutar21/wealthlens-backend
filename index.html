@@ -5,14 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>WealthLens</title>
 
-    <!-- PWA Manifest & App Tags -->
-    <link rel="manifest" href="/manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0b0f19">
-
-    <!-- Tailwind CSS CDN for Dark Theme Styling -->
+    <!-- Tailwind CSS for Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for the Graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <script>
         tailwind.config = {
             theme: {
@@ -20,118 +17,204 @@
                     colors: {
                         darkbg: '#0b0f19',
                         cardbg: '#121826',
-                        accentgreen: '#10b981',
-                        accentred: '#ef4444',
-                        accentgold: '#f59e0b'
                     }
                 }
             }
         }
     </script>
+    <style>
+        /* Hide scrollbars for a clean app feel */
+        ::-webkit-scrollbar { display: none; }
+    </style>
 </head>
-<body class="bg-darkbg text-gray-100 min-h-screen font-sans pb-10">
+<body class="bg-darkbg text-gray-100 min-h-screen font-sans pb-20 relative">
 
-    <!-- Top Navigation Bar -->
-    <header class="bg-cardbg border-b border-gray-800 p-4 sticky top-0 z-50 flex justify-between items-center">
+    <!-- Top Navigation -->
+    <header class="bg-cardbg border-b border-gray-800 p-4 sticky top-0 z-40 flex justify-between items-center">
         <div class="flex items-center space-x-2">
             <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-black">W</div>
             <h1 class="text-xl font-bold tracking-wide text-white">WealthLens</h1>
         </div>
-        <span class="text-xs bg-gray-800 text-emerald-400 px-2 py-1 rounded-full border border-gray-700">Live</span>
+        <div class="flex items-center space-x-3">
+            <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full border border-emerald-500/30">Live API</span>
+            <button onclick="document.getElementById('addAccountModal').classList.remove('hidden')" class="bg-emerald-500 text-black px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg shadow-emerald-500/20">
+                + Add
+            </button>
+        </div>
     </header>
 
-    <!-- Main Content Container -->
     <main class="max-w-md mx-auto p-4 space-y-6">
 
-        <!-- API Connection Bar -->
-        <section class="bg-cardbg p-3 rounded-xl border border-gray-800 flex flex-col space-y-2">
-            <label for="apiUrlInput" class="text-xs text-gray-400">Render Backend URL:</label>
-            <div class="flex space-x-2">
-                <input id="apiUrlInput" type="text" placeholder="https://your-api.onrender.com" 
-                       class="bg-gray-900 border border-gray-700 text-xs text-emerald-400 rounded p-2 flex-grow focus:outline-none">
-                <button onclick="saveApiUrl()" class="bg-emerald-500 text-black font-semibold text-xs px-3 py-2 rounded">
-                    Connect
-                </button>
-            </div>
-        </section>
+        <!-- Hidden API Connection (Auto-runs if URL is saved, but editable here) -->
+        <div class="bg-cardbg p-3 rounded-xl border border-gray-800 flex space-x-2">
+            <input id="apiUrlInput" type="text" placeholder="https://your-api.onrender.com" value="https://wealthlens-backend-11f5.onrender.com"
+                   class="bg-gray-900 border border-gray-700 text-xs text-emerald-400 rounded p-2 flex-grow focus:outline-none">
+            <button onclick="fetchAccounts()" class="bg-gray-700 text-white font-semibold text-xs px-3 py-2 rounded">Sync</button>
+        </div>
 
         <!-- Financial Summary Cards -->
         <section class="grid grid-cols-2 gap-3">
-            <!-- Net Worth Card -->
-            <div class="bg-cardbg p-4 rounded-2xl border border-gray-800 shadow-lg">
-                <p class="text-xs text-gray-400">Net Worth</p>
+            <div class="bg-cardbg p-4 rounded-2xl border border-gray-800 shadow-lg relative overflow-hidden">
+                <p class="text-xs text-gray-400">Total Net Worth</p>
                 <h2 id="netWorthDisplay" class="text-xl font-bold text-white mt-1">₹0</h2>
-                <span class="text-[10px] text-gray-500">Total liquid balance</span>
+                <div class="absolute -bottom-2 -right-2 w-12 h-12 bg-emerald-500/10 rounded-full blur-xl"></div>
             </div>
-
-            <!-- Bank Balance Card -->
-            <div class="bg-cardbg p-4 rounded-2xl border border-gray-800 shadow-lg">
-                <p class="text-xs text-gray-400">Bank Balance</p>
+            <div class="bg-cardbg p-4 rounded-2xl border border-gray-800 shadow-lg relative overflow-hidden">
+                <p class="text-xs text-gray-400">Liquid Balance</p>
                 <h2 id="bankBalanceDisplay" class="text-xl font-bold text-emerald-400 mt-1">₹0</h2>
-                <span class="text-[10px] text-gray-500">Across liquid accounts</span>
+                <div class="absolute -bottom-2 -right-2 w-12 h-12 bg-blue-500/10 rounded-full blur-xl"></div>
             </div>
         </section>
 
-        <!-- Accounts & Cards Section -->
-        <section class="space-y-3">
-            <div class="flex justify-between items-center">
-                <h3 class="text-sm font-semibold text-gray-300">Accounts & Cards</h3>
-                <button onclick="fetchAccounts()" class="text-xs text-emerald-400 hover:underline">Refresh</button>
+        <!-- Net Worth Chart Section -->
+        <section class="bg-cardbg p-4 rounded-2xl border border-gray-800 shadow-lg">
+            <h3 class="text-sm font-semibold text-gray-300 mb-4">6-Month Trend</h3>
+            <div class="h-40 w-full">
+                <canvas id="netWorthChart"></canvas>
             </div>
+        </section>
 
-            <!-- Account List Container -->
+        <!-- Accounts Section (Live Data) -->
+        <section class="space-y-3">
+            <h3 class="text-sm font-semibold text-gray-300">Connected Accounts</h3>
             <div id="accountsContainer" class="space-y-3">
-                <div class="bg-cardbg p-4 rounded-xl border border-gray-800 text-center text-xs text-gray-500">
-                    Connect your Render URL above to load accounts.
+                <div class="text-xs text-gray-500 text-center py-4">Fetching live data...</div>
+            </div>
+        </section>
+
+        <!-- Recent Transactions (UI Demo) -->
+        <section class="space-y-3 pb-8">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-semibold text-gray-300">Recent Transactions</h3>
+                <span class="text-xs text-gray-500">View All</span>
+            </div>
+            
+            <div class="bg-cardbg rounded-2xl border border-gray-800 divide-y divide-gray-800">
+                <!-- Tx 1 -->
+                <div class="p-4 flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">⛽</div>
+                        <div>
+                            <p class="text-sm font-medium text-white">Hunter 350 Fuel</p>
+                            <p class="text-xs text-gray-500">Today, 9:42 AM</p>
+                        </div>
+                    </div>
+                    <span class="text-sm font-bold text-red-400">-₹500</span>
+                </div>
+                <!-- Tx 2 -->
+                <div class="p-4 flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">💼</div>
+                        <div>
+                            <p class="text-sm font-medium text-white">Salary Credit</p>
+                            <p class="text-xs text-gray-500">Yesterday</p>
+                        </div>
+                    </div>
+                    <span class="text-sm font-bold text-emerald-400">+₹95,000</span>
+                </div>
+                <!-- Tx 3 -->
+                <div class="p-4 flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">🎉</div>
+                        <div>
+                            <p class="text-sm font-medium text-white">Wedding Vendor Advance</p>
+                            <p class="text-xs text-gray-500">Jul 18</p>
+                        </div>
+                    </div>
+                    <span class="text-sm font-bold text-red-400">-₹25,000</span>
+                </div>
+                 <!-- Tx 4 -->
+                 <div class="p-4 flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">☕</div>
+                        <div>
+                            <p class="text-sm font-medium text-white">Cafe in Pune</p>
+                            <p class="text-xs text-gray-500">Jul 16</p>
+                        </div>
+                    </div>
+                    <span class="text-sm font-bold text-red-400">-₹450</span>
                 </div>
             </div>
         </section>
-
     </main>
 
-    <!-- App Scripts -->
-    <script>
-        // Service Worker Registration for PWA
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(reg => console.log('Service Worker Registered'))
-                .catch(err => console.error('SW Registration Failed', err));
-        }
+    <!-- Add Account Modal (Hidden by default) -->
+    <div id="addAccountModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
+        <div class="bg-cardbg w-full max-w-md rounded-t-3xl sm:rounded-3xl border border-gray-700 p-6 space-y-5 animate-[slideUp_0.3s_ease-out]">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">Add New Account</h3>
+                <button onclick="document.getElementById('addAccountModal').classList.add('hidden')" class="text-gray-400 hover:text-white text-xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-gray-400 mb-1 block">Institution Name (e.g. HDFC)</label>
+                    <input type="text" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">Account Type</label>
+                        <select class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 focus:outline-none">
+                            <option>Bank Account</option>
+                            <option>Credit Card</option>
+                            <option>Investment</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">Current Balance</label>
+                        <input type="number" placeholder="₹ 0.00" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 focus:outline-none">
+                    </div>
+                </div>
+                <button class="w-full bg-emerald-500 text-black font-bold py-3 rounded-xl mt-4 hover:bg-emerald-400 transition-colors">
+                    Save Account to Database
+                </button>
+            </div>
+        </div>
+    </div>
 
-        // Load saved Render API URL
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedUrl = localStorage.getItem('wealthlens_api_url');
-            if (savedUrl) {
-                document.getElementById('apiUrlInput').value = savedUrl;
-                fetchAccounts();
+    <!-- Application Logic -->
+    <script>
+        // 1. Initialize the Chart
+        const ctx = document.getElementById('netWorthChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+                datasets: [{
+                    label: 'Net Worth',
+                    data: [120000, 135000, 130000, 150000, 180000, 210000],
+                    borderColor: '#10b981', // Emerald 500
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 10 } }, border: { display: false } },
+                    y: { display: false, min: 100000 }
+                },
+                interaction: { intersect: false, mode: 'index' }
             }
         });
 
-        function saveApiUrl() {
-            const url = document.getElementById('apiUrlInput').value.trim();
-            if (url) {
-                // Ensure no trailing slash
-                const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-                localStorage.setItem('wealthlens_api_url', cleanUrl);
-                fetchAccounts();
-            }
-        }
-
+        // 2. Fetch Live Accounts from Render
         async function fetchAccounts() {
-            const baseUrl = localStorage.getItem('wealthlens_api_url');
-            if (!baseUrl) return;
-
+            const baseUrl = document.getElementById('apiUrlInput').value.trim();
             const container = document.getElementById('accountsContainer');
-            container.innerHTML = `<div class="text-xs text-gray-400 text-center py-4">Loading accounts...</div>`;
+            
+            container.innerHTML = `<div class="text-xs text-gray-400 text-center py-4">Loading your accounts...</div>`;
 
             try {
                 const response = await fetch(`${baseUrl}/api/accounts`);
                 const accounts = await response.json();
 
-                if (!Array.isArray(accounts)) {
-                    container.innerHTML = `<div class="text-xs text-red-400 text-center py-4">Invalid response from server.</div>`;
-                    return;
-                }
+                if (!Array.isArray(accounts)) { throw new Error("Invalid format"); }
 
                 let totalBankBalance = 0;
                 container.innerHTML = '';
@@ -141,22 +224,21 @@
                     if (acc.type === 'bank') totalBankBalance += balance;
 
                     const isCredit = acc.type === 'credit_card';
-                    const badgeColor = isCredit ? 'text-amber-400 bg-amber-400/10' : 'text-emerald-400 bg-emerald-400/10';
+                    const badgeColor = isCredit ? 'text-amber-400 bg-amber-400/10' : 'text-blue-400 bg-blue-400/10';
 
                     const cardHtml = `
-                        <div class="bg-cardbg p-4 rounded-xl border border-gray-800 flex justify-between items-center">
+                        <div class="bg-gray-900/50 p-4 rounded-xl border border-gray-800 flex justify-between items-center transition-all hover:border-gray-600">
                             <div>
                                 <div class="flex items-center space-x-2">
                                     <span class="font-medium text-sm text-white">${acc.name}</span>
                                     <span class="text-[10px] px-2 py-0.5 rounded ${badgeColor}">
-                                        ${isCredit ? 'Credit Card' : 'Bank'}
+                                        ${isCredit ? 'Credit' : 'Bank'}
                                     </span>
                                 </div>
-                                ${acc.monthly_limit ? `<p class="text-[10px] text-gray-500 mt-0.5">Limit: ₹${Number(acc.monthly_limit).toLocaleString('en-IN')}</p>` : ''}
                             </div>
                             <div class="text-right">
-                                <span class="text-sm font-bold ${isCredit ? 'text-amber-400' : 'text-emerald-400'}">
-                                    ₹${balance.toLocaleString('en-IN')}
+                                <span class="text-sm font-bold ${isCredit ? 'text-amber-400' : 'text-white'}">
+                                    ${isCredit ? '-' : ''}₹${balance.toLocaleString('en-IN')}
                                 </span>
                             </div>
                         </div>
@@ -169,9 +251,12 @@
 
             } catch (err) {
                 console.error(err);
-                container.innerHTML = `<div class="text-xs text-red-400 text-center py-4">Failed to fetch data. Check your Render URL or connection.</div>`;
+                container.innerHTML = `<div class="text-xs text-red-400 text-center py-4">Failed to connect to API.</div>`;
             }
         }
+
+        // Auto-fetch on load
+        document.addEventListener('DOMContentLoaded', fetchAccounts);
     </script>
 </body>
 </html>
