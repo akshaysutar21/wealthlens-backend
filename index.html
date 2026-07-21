@@ -96,7 +96,6 @@
                 <select id="txAccount" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white"></select>
             </div>
 
-            <!-- Appears only during CC bill payments -->
             <div id="sourceAccountWrapper" class="hidden">
                 <label class="text-xs text-gray-400 mb-1 block">Paid From Which Bank Account?</label>
                 <select id="txSourceAccount" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white"></select>
@@ -148,11 +147,10 @@
                 targetLabel.innerText = "Credit Card Being Paid";
                 sourceWrapper.classList.remove('hidden');
                 
-                // Populate CCs for target
                 globalAccounts.filter(acc => acc.type === 'credit_card').forEach(acc => {
                     targetSelect.innerHTML += `<option value="${acc.id}">${acc.name}</option>`;
                 });
-                // Populate Banks for source
+                
                 const sourceSelect = document.getElementById('txSourceAccount');
                 sourceSelect.innerHTML = '';
                 globalAccounts.filter(acc => acc.type === 'bank').forEach(acc => {
@@ -240,7 +238,10 @@
             const accId = document.getElementById('txAccount').value;
             const amount = document.getElementById('txAmount').value;
             const desc = document.getElementById('txDesc').value;
-            const sourceAccId = txType === 'payment' ? document.getElementById('txSourceAccount').value : null;
+            
+            // Explicitly set source_account_id to null if it's not a payment
+            const sourceAccVal = document.getElementById('txSourceAccount').value;
+            const sourceAccId = (txType === 'payment' && sourceAccVal) ? parseInt(sourceAccVal) : null;
 
             if(!accId || !amount) return alert('Account and Amount are required');
 
@@ -252,7 +253,7 @@
                     type: txType, 
                     amount: parseFloat(amount), 
                     description: desc,
-                    source_account_id: sourceAccId ? parseInt(sourceAccId) : null
+                    source_account_id: sourceAccId
                 })
             });
             
